@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, Route, Routes } from 'react-router-dom'
 import { BadgeCheck, Menu, ShoppingBag, ShoppingCart, Sparkles, Wallet, X } from 'lucide-react'
 import AuthPage from './auth/AuthPage'
+import PlatformAdmin from './platform/PlatformAdmin'
 import { useAuth } from './auth/AuthProvider'
 import { TenantAdmin, TenantStorefront } from './tenant/TenantAdmin'
 import { tenantSlugFromHostname } from './tenant/domains'
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/wallet" element={<LiveWallet/>}/>
       <Route path="/orders" element={<LiveOrders/>}/>
       <Route path="/admin" element={<TenantAdmin/>}/>
+      <Route path="/platform-admin" element={<PlatformAdmin/>}/>
       <Route path="/rent" element={<TenantAdmin/>}/>
       <Route path="/s/:slug" element={<TenantStorefront/>}/>
       <Route path="*" element={<NotFound/>}/>
