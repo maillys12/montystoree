@@ -156,7 +156,7 @@ export function TenantAdmin() {
       <div className="admin-panel">{current?<><div className="admin-heading"><h2>ตั้งค่าร้านค้า</h2><span className="draft-badge">{current.status==='active'?'เปิดใช้งานแล้ว':'รออนุมัติการเช่า'}</span></div>
         <p className="muted small">ร้านนี้มีสินค้าและข้อมูลแยกจากร้านอื่น คุณจะไม่สามารถเปิดสถานะร้านเองได้</p>
         <form onSubmit={updateDesign} className="admin-form"><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={storeName} onChange={e=>setStoreName(e.target.value)}/></label><label>สีหลักของร้าน<input type="color" aria-label="สีหลักของร้าน" value={primaryColor} onChange={e=>setPrimaryColor(e.target.value)}/></label><button className="button button-primary" disabled={busy} type="submit"><Save size={16}/> บันทึกการปรับแต่ง</button></form>
-        <a className="text-link" href={current.status === "active" ? tenantUrl(current.slug) : `/s/${current.slug}`}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
+        <a className="text-link" href={current.slug === "otpthai" ? "/" : current.status === "active" ? tenantUrl(current.slug) : `/s/${current.slug}`}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
       </>:<div className="empty"><Store/><p>เลือกร้านทางซ้ายเพื่อจัดการ</p></div>}</div>
     </div>
     {current&&<div className="admin-panel catalog-panel"><h2><PackagePlus size={20}/> สินค้าของ {current.name}</h2><p className="muted small">สินค้าใหม่จะถูกเก็บเป็นแบบร่าง ไม่สามารถซื้อได้ก่อนเปิดระบบชำระเงินและสต็อกจริง</p>
