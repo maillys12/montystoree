@@ -26,7 +26,7 @@ export function TenantAdmin() {
   const [productSlug, setProductSlug] = useState('')
   const [productPrice, setProductPrice] = useState('')
   const [productDuration, setProductDuration] = useState('30')
-  const [deliveryType, setDeliveryType] = useState<'manual'|'account'|'code'|'api'>('manual')
+  const [deliveryType, setDeliveryType] = useState<'account'|'code'>('account')
 
   const refreshStores = async () => {
     const { data, error: queryError } = await supabase.from('stores')
@@ -132,31 +132,29 @@ export function TenantAdmin() {
   if(loading||fetching)return <section className="placeholder"><p>กำลังโหลดร้านค้าของคุณ...</p></section>
   if(!user)return <Navigate to="/login?next=/admin" replace/>
   return <section className="section page-section tenant-admin">
-    <div className="section-heading"><div><span className="eyebrow blue">STORE CONTROL CENTER</span><h1 className="page-title">จัดการร้านค้าของฉัน</h1><p className="muted">สร้างร้านร่าง จัดการแบรนด์และแค็ตตาล็อกสินค้าของตัวเอง</p></div><LayoutDashboard size={34} color="#1769e0"/></div>
+    <div className="section-heading"><div><span className="eyebrow blue">STORE CONTROL CENTER</span><h1 className="page-title">จัดการร้านค้าของฉัน</h1><p className="muted">จัดการร้าน OTPTHAI สินค้า ราคา และสต็อก</p></div><LayoutDashboard size={34} color="#1769e0"/></div>
     {error&&<p role="alert" className="auth-error">{error}</p>}
     {success&&<p role="status" className="auth-success"><CheckCircle2 size={17}/>{success}</p>}
     <div className="admin-columns">
-      <div className="admin-panel"><h2><Store size={20}/> ร้านค้าของฉัน</h2>
-        {stores.length?<div className="store-picker">{stores.map(store=><button type="button" key={store.id} className={selected===store.id?'store-choice active':'store-choice'} onClick={()=>setSelected(store.id)}><strong>{store.name}</strong><small>/s/{store.slug} · {store.status}</small></button>)}</div>:<p className="muted small">ยังไม่มีร้าน เริ่มสร้างร้านแรกด้านล่างได้เลย</p>}
-        <form className="admin-form" onSubmit={createStore}><h3><Plus size={17}/> สร้างร้านใหม่</h3><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="Premium Shop"/></label><label>ชื่อที่อยู่ร้าน<input required minLength={3} maxLength={40} pattern="[a-z0-9][a-z0-9-]{2,39}" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase())} placeholder="premiumshop"/></label><small className="muted">ที่อยู่ร้าน: {slug||'premiumshop'}.{ROOT_DOMAIN} (ใช้ได้หลังยืนยัน Wildcard Domain) · สร้างได้สูงสุด 3 ร้าน</small><button disabled={busy} className="button button-primary" type="submit">สร้างร้านร่าง <ArrowRight size={16}/></button></form>
+      <div className="admin-panel"><h2><Store size={20}/> ร้าน OTPTHAI</h2>
+        {current?<div className="store-picker"><button type="button" className="store-choice active"><strong>{current.name}</strong><small>ร้านหลัก · {current.status}</small></button></div>:<p className="muted small">ไม่พบร้านหลัก OTPTHAI สำหรับบัญชีนี้</p>}
       </div>
       <div className="admin-panel">{current?<><div className="admin-heading"><h2>ตั้งค่าร้านค้า</h2><span className="draft-badge">{current.status==='active'?'เปิดใช้งานแล้ว':'รออนุมัติการเช่า'}</span></div>
-        <p className="muted small">ร้านนี้มีสินค้าและข้อมูลแยกจากร้านอื่น คุณจะไม่สามารถเปิดสถานะร้านเองได้</p>
+        <p className="muted small">ร้านหลัก OTPTHAI</p>
         <form onSubmit={updateDesign} className="admin-form"><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={storeName} onChange={e=>setStoreName(e.target.value)}/></label><label>สีหลักของร้าน<input type="color" aria-label="สีหลักของร้าน" value={primaryColor} onChange={e=>setPrimaryColor(e.target.value)}/></label><button className="button button-primary" disabled={busy} type="submit"><Save size={16}/> บันทึกการปรับแต่ง</button></form>
-        <a className="text-link" href={current.slug === "otpthai" ? "/" : current.status === "active" ? tenantUrl(current.slug) : `/s/${current.slug}`}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
+        <Link className="text-link" to="/">ดูหน้าร้าน <ArrowRight size={16}/></Link>
       </>:<div className="empty"><Store/><p>เลือกร้านทางซ้ายเพื่อจัดการ</p></div>}</div>
     </div>
-    {current&&<div className="admin-panel catalog-panel"><h2><PackagePlus size={20}/> สินค้าของ {current.name}</h2><p className="muted small">สินค้าใหม่จะถูกเก็บเป็นแบบร่าง ไม่สามารถซื้อได้ก่อนเปิดระบบชำระเงินและสต็อกจริง</p>
+    {current&&<div className="admin-panel catalog-panel"><h2><PackagePlus size={20}/> สินค้าของ {current.name}</h2><p className="muted small">เพิ่มสินค้าและสต็อกจริงจากหลังบ้าน ก่อนเผยแพร่ขาย</p>
       <div className="catalog-admin-grid"><form className="admin-form" onSubmit={addProduct}>
         <h3>เพิ่มสินค้าแบบร่าง</h3><label>ชื่อสินค้า<input required maxLength={120} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="ชื่อสินค้าที่ต้องการจำหน่าย"/></label>
         <label>รหัส URL สินค้า<input required value={productSlug} onChange={e=>setProductSlug(e.target.value.toLowerCase())} placeholder="netflix-30-days"/></label>
         <label>ราคาขาย (บาท)<input required type="number" min="0" max="1000000" step="0.01" value={productPrice} onChange={e=>setProductPrice(e.target.value)} placeholder="0.00"/></label>
         <label>ระยะเวลา (วัน)<input required type="number" min="1" max="3650" value={productDuration} onChange={e=>setProductDuration(e.target.value)}/></label>
-        <label>วิธีส่งมอบ<select value={deliveryType} onChange={e=>setDeliveryType(e.target.value as typeof deliveryType)}><option value="manual">แอดมินส่งเอง (หลังเปิดระบบคำสั่งซื้อ)</option><option value="account" disabled>บัญชีสำเร็จรูป — ยังไม่เชื่อมสต็อก</option><option value="code" disabled>โค้ด — ยังไม่เชื่อมสต็อก</option><option value="api" disabled>API ภายนอก — ยังไม่เชื่อมผู้ให้บริการ</option></select></label>
+        <label>วิธีส่งมอบ<select value={deliveryType} onChange={e=>setDeliveryType(e.target.value as typeof deliveryType)}><option value="account">บัญชีจากสต็อกอัตโนมัติ</option><option value="code">โค้ดจากสต็อกอัตโนมัติ</option></select></label>
         <button disabled={busy} className="button button-primary" type="submit"><Plus size={16}/> เพิ่มสินค้า</button>
       </form><div className="admin-products">{products.length?products.map(product=><div className="admin-product" key={product.id}><div><strong>{product.name}</strong><small>/{product.slug} · {variants.filter(v=>v.product_id===product.id).map(v=>`${v.label} ฿${(v.price_satang/100).toLocaleString('th-TH')}`).join(', ')||'ไม่มีแพ็กเกจ'}</small></div><div className="admin-product-actions"><span className="draft-badge">{product.published?'เผยแพร่':'แบบร่าง'}</span><button type="button" className="button button-primary button-small" disabled={busy||current.status!=='active'} onClick={()=>void toggleProduct(product)}>{product.published?'ซ่อนสินค้า':'เผยแพร่'}</button></div></div>):<div className="empty"><PackagePlus/><p>ยังไม่มีสินค้าในร้านนี้</p></div>}</div></div>
     </div>}
-    <div className="notice"><CircleAlert size={20}/><span>ระบบนี้ยังไม่มีการเก็บค่าเช่า รับชำระเงิน หรือส่งมอบสินค้าจริง ร้านใหม่จะอยู่ในสถานะร่างจนกว่าจะผ่านขั้นตอนเหล่านั้น <Wallet size={14}/></span></div>
   </section>
 }
 
