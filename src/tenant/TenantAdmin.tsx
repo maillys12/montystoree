@@ -127,7 +127,7 @@ export function TenantAdmin() {
       <div className="admin-panel">{current?<><div className="admin-heading"><h2>ตั้งค่าร้านค้า</h2><span className="draft-badge">{current.status==='active'?'เปิดใช้งานแล้ว':'รออนุมัติการเช่า'}</span></div>
         <p className="muted small">ร้านนี้มีสินค้าและข้อมูลแยกจากร้านอื่น คุณจะไม่สามารถเปิดสถานะร้านเองได้</p>
         <form onSubmit={updateDesign} className="admin-form"><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={storeName} onChange={e=>setStoreName(e.target.value)}/></label><label>สีหลักของร้าน<input type="color" aria-label="สีหลักของร้าน" value={primaryColor} onChange={e=>setPrimaryColor(e.target.value)}/></label><button className="button button-primary" disabled={busy} type="submit"><Save size={16}/> บันทึกการปรับแต่ง</button></form>
-        <a className="text-link" href={tenantUrl(current.slug)}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
+        <a className="text-link" href={current.status === "active" ? tenantUrl(current.slug) : `/s/${current.slug}`}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
       </>:<div className="empty"><Store/><p>เลือกร้านทางซ้ายเพื่อจัดการ</p></div>}</div>
     </div>
     {current&&<div className="admin-panel catalog-panel"><h2><PackagePlus size={20}/> สินค้าของ {current.name}</h2><p className="muted small">สินค้าใหม่จะถูกเก็บเป็นแบบร่าง ไม่สามารถซื้อได้ก่อนเปิดระบบชำระเงินและสต็อกจริง</p>
@@ -179,7 +179,7 @@ export function TenantStorefront({ overrideSlug }: { overrideSlug?: string }) {
   const primary=typeof theme.primary==='string'&&/^#[0-9a-fA-F]{6}$/.test(theme.primary)?theme.primary:'#1769e0'
   return <section className="section page-section tenant-page" style={{'--tenant-primary':primary} as CSSProperties}>
     {store.status!=='active'&&<div className="notice"><CircleAlert size={19}/> หน้าตัวอย่างสำหรับเจ้าของร้าน — ร้านยังไม่เปิดให้สาธารณะเข้าชมหรือสั่งซื้อ</div>}
-    <div className="tenant-hero"><span className="eyebrow">PREMIUM DIGITAL STORE</span><h1>{store.name}</h1><p>ร้านค้าดิจิทัลของคุณ · {store.slug}.{ROOT_DOMAIN}</p><a href={`https://${ROOT_DOMAIN}/admin`} className="button button-white">กลับหลังบ้าน <ArrowRight size={16}/></a></div>
+    <div className="tenant-hero"><span className="eyebrow">PREMIUM DIGITAL STORE</span><h1>{store.name}</h1><p>ร้านค้าดิจิทัลของคุณ · {store.slug}.{ROOT_DOMAIN}</p><a href={`https://www.${ROOT_DOMAIN}/admin`} className="button button-white">กลับหลังบ้าน <ArrowRight size={16}/></a></div>
     <div className="section-heading"><div><span className="eyebrow blue">STORE CATALOG</span><h2>สินค้าของร้าน</h2><p className="muted">สินค้าจะแสดงข้อมูลจากร้านนี้เท่านั้น</p></div></div>
     {items.length?<div className="tenant-items">{items.map(product=><article className="tenant-item" key={product.id}><div className="tenant-item-art"><Store size={38}/></div><h3>{product.name}</h3><p className="muted small">{product.description||'สินค้าแบบร่าง'}</p>{variants.filter(v=>v.product_id===product.id).map(v=><div className="tenant-item-price" key={v.id}><span>{v.label}</span><strong>฿{(v.price_satang/100).toLocaleString('th-TH')}</strong></div>)}<button className="button button-primary button-wide" disabled>ยังไม่เปิดรับคำสั่งซื้อ</button></article>)}</div>:<div className="empty"><PackagePlus/><h3>ยังไม่มีสินค้า</h3><p>เจ้าของร้านสามารถเพิ่มสินค้าจากหน้า Admin ได้</p></div>}
   </section>
