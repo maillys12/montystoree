@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type CSSProperties } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, CircleAlert, LayoutDashboard, PackagePlus, Plus, Save, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -175,7 +175,7 @@ export function TenantStorefront() {
   if(!store)return <section className="placeholder"><Store size={35}/><h1>ไม่พบร้านค้านี้</h1><p>ร้านอาจยังไม่เปิดใช้งาน หรือคุณไม่มีสิทธิ์ดูร้านร่าง</p><Link className="button button-primary" to="/">หน้าหลัก</Link></section>
   const theme=store.theme&&typeof store.theme==='object'?store.theme as {primary?:unknown}:{}
   const primary=typeof theme.primary==='string'&&/^#[0-9a-fA-F]{6}$/.test(theme.primary)?theme.primary:'#1769e0'
-  return <section className="section page-section tenant-page" style={{'--tenant-primary':primary} as React.CSSProperties}>
+  return <section className="section page-section tenant-page" style={{'--tenant-primary':primary} as CSSProperties}>
     {store.status!=='active'&&<div className="notice"><CircleAlert size={19}/> หน้าตัวอย่างสำหรับเจ้าของร้าน — ร้านยังไม่เปิดให้สาธารณะเข้าชมหรือสั่งซื้อ</div>}
     <div className="tenant-hero"><span className="eyebrow">PREMIUM DIGITAL STORE</span><h1>{store.name}</h1><p>ร้านค้าดิจิทัลของคุณ · /s/{store.slug}</p><Link to="/admin" className="button button-white">กลับหลังบ้าน <ArrowRight size={16}/></Link></div>
     <div className="section-heading"><div><span className="eyebrow blue">STORE CATALOG</span><h2>สินค้าของร้าน</h2><p className="muted">สินค้าจะแสดงข้อมูลจากร้านนี้เท่านั้น</p></div></div>
