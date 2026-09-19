@@ -33,7 +33,7 @@ export function TenantAdmin() {
 
   const refreshStores = async () => {
     const { data, error: queryError } = await supabase.from('stores')
-      .select('id,slug,name,status,theme').order('created_at', { ascending: false })
+      .select('id,slug,name,status,theme').eq('owner_id',user!.id).order('created_at', { ascending: false })
     if (queryError) throw queryError
     const list = (data ?? []) as StoreRecord[]
     setStores(list)
