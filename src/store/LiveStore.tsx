@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Package, Search, ShieldCheck, ShoppingBag, Wallet } from 'lucide-react'
+import { ArrowRight, ChevronRight, Package, Search, ShieldCheck, ShoppingBag, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import QRCode from 'qrcode'
 import { promptpayPayload } from '../lib/promptpay'
