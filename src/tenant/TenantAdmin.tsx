@@ -2,8 +2,6 @@ import { useEffect, useState, type FormEvent, type CSSProperties } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, CircleAlert, LayoutDashboard, PackagePlus, Plus, Save, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { PlatformAdminLink } from '../platform/PlatformAdmin'
-import { ROOT_DOMAIN, tenantUrl } from './domains'
 import { useAuth } from '../auth/AuthProvider'
 
 type StoreRecord = { id: string; slug: string; name: string; status: string; theme: unknown }
@@ -22,9 +20,7 @@ export function TenantAdmin() {
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [slug, setSlug] = useState('')
-  const [name, setName] = useState('')
-  const [storeName, setStoreName] = useState('')
+    const [storeName, setStoreName] = useState('')
   const [primaryColor, setPrimaryColor] = useState('#1769e0')
   const [productName, setProductName] = useState('')
   const [productSlug, setProductSlug] = useState('')
@@ -34,7 +30,7 @@ export function TenantAdmin() {
 
   const refreshStores = async () => {
     const { data, error: queryError } = await supabase.from('stores')
-      .select('id,slug,name,status,theme').eq('owner_id',user!.id).order('created_at', { ascending: false })
+      .select('id,slug,name,status,theme').eq('owner_id',user!.id).eq('slug','otpthai').limit(1)
     if (queryError) throw queryError
     const list = (data ?? []) as StoreRecord[]
     setStores(list)
@@ -66,16 +62,6 @@ export function TenantAdmin() {
     setPrimaryColor(typeof theme.primary==='string' && /^#[0-9a-fA-F]{6}$/.test(theme.primary) ? theme.primary : '#1769e0')
   },[current?.id])
 
-  const createStore = async (event:FormEvent) => {
-    event.preventDefault();setBusy(true);setError('');setSuccess('')
-    try {
-      const {data,error:rpcError}=await supabase.rpc('create_draft_store',{p_slug:slug.trim().toLowerCase(),p_name:name.trim()})
-      if(rpcError)throw rpcError
-      await refreshStores()
-      if(typeof data==='string')setSelected(data)
-      setName('');setSlug('');setSuccess('สร้างร้านร่างสำเร็จ กรุณาตั้งค่าร้านและรออนุมัติการเช่าก่อนเปิดขาย')
-    } catch(e){setError(shortError(e))}finally{setBusy(false)}
-  }
   const updateDesign = async (event:FormEvent) => {
     event.preventDefault();if(!current)return
     setBusy(true);setError('');setSuccess('')
@@ -147,7 +133,6 @@ export function TenantAdmin() {
   if(!user)return <Navigate to="/login?next=/admin" replace/>
   return <section className="section page-section tenant-admin">
     <div className="section-heading"><div><span className="eyebrow blue">STORE CONTROL CENTER</span><h1 className="page-title">จัดการร้านค้าของฉัน</h1><p className="muted">สร้างร้านร่าง จัดการแบรนด์และแค็ตตาล็อกสินค้าของตัวเอง</p></div><LayoutDashboard size={34} color="#1769e0"/></div>
-    <PlatformAdminLink/>
     {error&&<p role="alert" className="auth-error">{error}</p>}
     {success&&<p role="status" className="auth-success"><CheckCircle2 size={17}/>{success}</p>}
     <div className="admin-columns">
