@@ -29,14 +29,16 @@ test('anonymous wallet and orders redirect to sign in', async ({page}) => {
   await expect(page).toHaveURL(/\/login\?next=/)
 })
 
-test('anonymous platform admin is blocked', async ({page}) => {
+test('rental routes have been removed from single-store web app', async ({page}) => {
   await page.goto('/platform-admin')
-  await expect(page).toHaveURL(/\/login\?next=/)
+  await expect(page.getByRole('heading',{name:'ไม่พบหน้านี้'})).toBeVisible()
+  await page.goto('/rent')
+  await expect(page.getByRole('heading',{name:'ไม่พบหน้านี้'})).toBeVisible()
 })
 
-test('pending tenant preview is not public', async ({page}) => {
+test('old tenant route is not part of the storefront', async ({page}) => {
   await page.goto('/s/maillys')
-  await expect(page.getByRole('heading', {name:'ไม่พบร้านค้านี้'})).toBeVisible()
+  await expect(page.getByRole('heading', {name:'ไม่พบหน้านี้'})).toBeVisible()
 })
 
 test('register rejects mismatched passwords before network call', async ({page}) => {
