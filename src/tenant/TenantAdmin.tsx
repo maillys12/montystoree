@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type CSSProperties } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, CircleAlert, LayoutDashboard, PackagePlus, Plus, Save, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { PlatformAdminLink } from '../platform/PlatformAdmin'
 import { ROOT_DOMAIN, tenantUrl } from './domains'
 import { useAuth } from '../auth/AuthProvider'
 
@@ -146,6 +147,7 @@ export function TenantAdmin() {
   if(!user)return <Navigate to="/login?next=/admin" replace/>
   return <section className="section page-section tenant-admin">
     <div className="section-heading"><div><span className="eyebrow blue">STORE CONTROL CENTER</span><h1 className="page-title">จัดการร้านค้าของฉัน</h1><p className="muted">สร้างร้านร่าง จัดการแบรนด์และแค็ตตาล็อกสินค้าของตัวเอง</p></div><LayoutDashboard size={34} color="#1769e0"/></div>
+    <PlatformAdminLink/>
     {error&&<p role="alert" className="auth-error">{error}</p>}
     {success&&<p role="status" className="auth-success"><CheckCircle2 size={17}/>{success}</p>}
     <div className="admin-columns">
