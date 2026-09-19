@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type CSSProperties } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, CircleAlert, LayoutDashboard, PackagePlus, Plus, Save, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { ROOT_DOMAIN, tenantUrl } from './domains'
 import { useAuth } from '../auth/AuthProvider'
 
 type StoreRecord = { id: string; slug: string; name: string; status: string; theme: unknown }
@@ -121,12 +122,12 @@ export function TenantAdmin() {
     <div className="admin-columns">
       <div className="admin-panel"><h2><Store size={20}/> ร้านค้าของฉัน</h2>
         {stores.length?<div className="store-picker">{stores.map(store=><button type="button" key={store.id} className={selected===store.id?'store-choice active':'store-choice'} onClick={()=>setSelected(store.id)}><strong>{store.name}</strong><small>/s/{store.slug} · {store.status}</small></button>)}</div>:<p className="muted small">ยังไม่มีร้าน เริ่มสร้างร้านแรกด้านล่างได้เลย</p>}
-        <form className="admin-form" onSubmit={createStore}><h3><Plus size={17}/> สร้างร้านใหม่</h3><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="Premium Shop"/></label><label>ชื่อที่อยู่ร้าน<input required minLength={3} maxLength={40} pattern="[a-z0-9][a-z0-9-]{2,39}" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase())} placeholder="premiumshop"/></label><small className="muted">URL ตัวอย่าง: /s/{slug||'premiumshop'} · สร้างได้สูงสุด 3 ร้านต่อบัญชีในช่วงทดสอบ</small><button disabled={busy} className="button button-primary" type="submit">สร้างร้านร่าง <ArrowRight size={16}/></button></form>
+        <form className="admin-form" onSubmit={createStore}><h3><Plus size={17}/> สร้างร้านใหม่</h3><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="Premium Shop"/></label><label>ชื่อที่อยู่ร้าน<input required minLength={3} maxLength={40} pattern="[a-z0-9][a-z0-9-]{2,39}" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase())} placeholder="premiumshop"/></label><small className="muted">ที่อยู่ร้าน: {slug||'premiumshop'}.{ROOT_DOMAIN} (ใช้ได้หลังยืนยัน Wildcard Domain) · สร้างได้สูงสุด 3 ร้าน</small><button disabled={busy} className="button button-primary" type="submit">สร้างร้านร่าง <ArrowRight size={16}/></button></form>
       </div>
       <div className="admin-panel">{current?<><div className="admin-heading"><h2>ตั้งค่าร้านค้า</h2><span className="draft-badge">{current.status==='active'?'เปิดใช้งานแล้ว':'รออนุมัติการเช่า'}</span></div>
         <p className="muted small">ร้านนี้มีสินค้าและข้อมูลแยกจากร้านอื่น คุณจะไม่สามารถเปิดสถานะร้านเองได้</p>
         <form onSubmit={updateDesign} className="admin-form"><label>ชื่อร้าน<input required minLength={2} maxLength={120} value={storeName} onChange={e=>setStoreName(e.target.value)}/></label><label>สีหลักของร้าน<input type="color" aria-label="สีหลักของร้าน" value={primaryColor} onChange={e=>setPrimaryColor(e.target.value)}/></label><button className="button button-primary" disabled={busy} type="submit"><Save size={16}/> บันทึกการปรับแต่ง</button></form>
-        <Link className="text-link" to={`/s/${current.slug}`}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></Link>
+        <a className="text-link" href={tenantUrl(current.slug)}>ดูหน้าร้านของฉัน <ArrowRight size={16}/></a>
       </>:<div className="empty"><Store/><p>เลือกร้านทางซ้ายเพื่อจัดการ</p></div>}</div>
     </div>
     {current&&<div className="admin-panel catalog-panel"><h2><PackagePlus size={20}/> สินค้าของ {current.name}</h2><p className="muted small">สินค้าใหม่จะถูกเก็บเป็นแบบร่าง ไม่สามารถซื้อได้ก่อนเปิดระบบชำระเงินและสต็อกจริง</p>
@@ -143,8 +144,9 @@ export function TenantAdmin() {
   </section>
 }
 
-export function TenantStorefront() {
-  const { slug }=useParams()
+export function TenantStorefront({ overrideSlug }: { overrideSlug?: string }) {
+  const { slug: routeSlug }=useParams()
+  const slug = overrideSlug ?? routeSlug
   const {user,loading}=useAuth()
   const [store,setStore]=useState<StoreRecord|null>(null)
   const [items,setItems]=useState<ProductRecord[]>([])
@@ -177,7 +179,7 @@ export function TenantStorefront() {
   const primary=typeof theme.primary==='string'&&/^#[0-9a-fA-F]{6}$/.test(theme.primary)?theme.primary:'#1769e0'
   return <section className="section page-section tenant-page" style={{'--tenant-primary':primary} as CSSProperties}>
     {store.status!=='active'&&<div className="notice"><CircleAlert size={19}/> หน้าตัวอย่างสำหรับเจ้าของร้าน — ร้านยังไม่เปิดให้สาธารณะเข้าชมหรือสั่งซื้อ</div>}
-    <div className="tenant-hero"><span className="eyebrow">PREMIUM DIGITAL STORE</span><h1>{store.name}</h1><p>ร้านค้าดิจิทัลของคุณ · /s/{store.slug}</p><Link to="/admin" className="button button-white">กลับหลังบ้าน <ArrowRight size={16}/></Link></div>
+    <div className="tenant-hero"><span className="eyebrow">PREMIUM DIGITAL STORE</span><h1>{store.name}</h1><p>ร้านค้าดิจิทัลของคุณ · {store.slug}.{ROOT_DOMAIN}</p><a href={`https://${ROOT_DOMAIN}/admin`} className="button button-white">กลับหลังบ้าน <ArrowRight size={16}/></a></div>
     <div className="section-heading"><div><span className="eyebrow blue">STORE CATALOG</span><h2>สินค้าของร้าน</h2><p className="muted">สินค้าจะแสดงข้อมูลจากร้านนี้เท่านั้น</p></div></div>
     {items.length?<div className="tenant-items">{items.map(product=><article className="tenant-item" key={product.id}><div className="tenant-item-art"><Store size={38}/></div><h3>{product.name}</h3><p className="muted small">{product.description||'สินค้าแบบร่าง'}</p>{variants.filter(v=>v.product_id===product.id).map(v=><div className="tenant-item-price" key={v.id}><span>{v.label}</span><strong>฿{(v.price_satang/100).toLocaleString('th-TH')}</strong></div>)}<button className="button button-primary button-wide" disabled>ยังไม่เปิดรับคำสั่งซื้อ</button></article>)}</div>:<div className="empty"><PackagePlus/><h3>ยังไม่มีสินค้า</h3><p>เจ้าของร้านสามารถเพิ่มสินค้าจากหน้า Admin ได้</p></div>}
   </section>
