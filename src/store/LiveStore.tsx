@@ -87,7 +87,24 @@ export function LiveOrders(){
  const [orders,setOrders]=useState<Array<{id:string;status:string;total_satang:number;created_at:string}>>([])
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState('')
- useEffect(()=>{if(!user){setLoading(false);return}let live=true;void supabase.from('orders').select('id,status,total_satang,created_at').eq('customer_id',user.id).order('created_at',{ascending:false}).then(({data,error})=>{if(!live)return;if(error)setError(error.message);else setOrders(data??[]);setLoading(false)});return()=>{live=false}},[user?.id])
+ useEffect(()=>{
+   if(!user){setOrders([]);setLoading(false);return}
+   let live=true
+   setLoading(true);setError('');setOrders([])
+   const run=async()=>{
+     const main=await supabase.from('stores').select('id').eq('slug','otpthai').eq('status','active').maybeSingle()
+     if(main.error)throw main.error
+     if(!main.data){if(live)setOrders([]);return}
+     const {data,error:queryError}=await supabase.from('orders')
+       .select('id,status,total_satang,created_at')
+       .eq('customer_id',user.id).eq('store_id',main.data.id)
+       .order('created_at',{ascending:false})
+     if(queryError)throw queryError
+     if(live)setOrders(data??[])
+   }
+   void run().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)})
+   return()=>{live=false}
+ },[user?.id])
  if(authLoading)return <section className="placeholder">กำลังตรวจสอบบัญชี...</section>
  if(!user)return <Navigate to="/login?next=/orders" replace/>
  return <section className="section page-section"><h1 className="page-title">ประวัติคำสั่งซื้อ</h1><p className="muted">ข้อมูลคำสั่งซื้อจริงของบัญชีที่เข้าสู่ระบบ</p>{error?<div role="alert" className="notice">{error}</div>:loading?<div className="empty">กำลังโหลด...</div>:orders.length?<div className="admin-products">{orders.map(o=><div className="admin-product" key={o.id}><div><strong>#{o.id.slice(0,8).toUpperCase()}</strong><small>{new Date(o.created_at).toLocaleString('th-TH')} · {o.status}</small></div><strong>{money(o.total_satang)}</strong></div>)}</div>:<div className="empty"><Package size={34}/><h3>ยังไม่มีคำสั่งซื้อ</h3><p>เมื่อมีคำสั่งซื้อจริง รายการจะปรากฏที่นี่</p><Link className="button button-primary" to="/products">ดูสินค้า</Link></div>}</section>
@@ -97,7 +114,29 @@ export function LiveWallet(){
  const [entries,setEntries]=useState<Array<{id:string;amount_satang:number;entry_type:string;created_at:string}>>([])
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState('')
- useEffect(()=>{if(!user){setLoading(false);return}let live=true;const run=async()=>{const {data:accounts,error:aerr}=await supabase.from('wallet_accounts').select('id').eq('user_id',user.id);if(aerr)throw aerr;const ids=(accounts??[]).map(x=>x.id);if(!ids.length){if(live)setEntries([]);return}const {data,error:err}=await supabase.from('wallet_entries').select('id,amount_satang,entry_type,created_at').in('account_id',ids).order('created_at',{ascending:false});if(err)throw err;if(live)setEntries(data??[])};void run().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[user?.id])
+ useEffect(()=>{
+   if(!user){setEntries([]);setLoading(false);return}
+   let live=true
+   setLoading(true);setError('');setEntries([])
+   const run=async()=>{
+     const main=await supabase.from('stores').select('id').eq('slug','otpthai').eq('status','active').maybeSingle()
+     if(main.error)throw main.error
+     if(!main.data){if(live)setEntries([]);return}
+     const {data:accounts,error:accountError}=await supabase.from('wallet_accounts')
+       .select('id').eq('user_id',user.id).eq('store_id',main.data.id)
+     if(accountError)throw accountError
+     const ids=(accounts??[]).map(a=>a.id)
+     if(!ids.length){if(live)setEntries([]);return}
+     const {data,error:entryError}=await supabase.from('wallet_entries')
+       .select('id,amount_satang,entry_type,created_at')
+       .eq('store_id',main.data.id).in('account_id',ids)
+       .order('created_at',{ascending:false})
+     if(entryError)throw entryError
+     if(live)setEntries(data??[])
+   }
+   void run().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)})
+   return()=>{live=false}
+ },[user?.id])
  if(authLoading)return <section className="placeholder">กำลังตรวจสอบบัญชี...</section>
  if(!user)return <Navigate to="/login?next=/wallet" replace/>
  const balance=entries.reduce((sum,e)=>sum+e.amount_satang,0)
