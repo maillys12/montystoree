@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import {
-  ArrowRight, BadgeCheck, Boxes, CheckCircle2, ClipboardList, CreditCard,
-  FileCheck2, History, LayoutDashboard, Package, PackagePlus, Palette,
-  Plus, RefreshCcw, Save, ShieldCheck, ShoppingBag, Store, Users, Wallet,
+  ArrowRight, Boxes, CheckCircle2, ClipboardList, CreditCard,
+  FileCheck2, LayoutDashboard, PackagePlus, Palette,
+  Plus, Save, ShoppingBag, Store, Users, Wallet,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
