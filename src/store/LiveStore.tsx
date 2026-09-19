@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowRight, ChevronRight, Clock3, Package, Search, ShieldCheck, ShoppingBag, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -112,33 +112,53 @@ export function LiveOrders(){
 export function LiveWallet(){
  const {user,loading:authLoading}=useAuth()
  const [entries,setEntries]=useState<Array<{id:string;amount_satang:number;entry_type:string;created_at:string}>>([])
- const [loading,setLoading]=useState(true)
- const [error,setError]=useState('')
- useEffect(()=>{
-   if(!user){setEntries([]);setLoading(false);return}
-   let live=true
-   setLoading(true);setError('');setEntries([])
-   const run=async()=>{
-     const main=await supabase.from('stores').select('id').eq('slug','otpthai').eq('status','active').maybeSingle()
-     if(main.error)throw main.error
-     if(!main.data){if(live)setEntries([]);return}
-     const {data:accounts,error:accountError}=await supabase.from('wallet_accounts')
-       .select('id').eq('user_id',user.id).eq('store_id',main.data.id)
-     if(accountError)throw accountError
-     const ids=(accounts??[]).map(a=>a.id)
-     if(!ids.length){if(live)setEntries([]);return}
-     const {data,error:entryError}=await supabase.from('wallet_entries')
-       .select('id,amount_satang,entry_type,created_at')
-       .eq('store_id',main.data.id).in('account_id',ids)
-       .order('created_at',{ascending:false})
-     if(entryError)throw entryError
-     if(live)setEntries(data??[])
-   }
-   void run().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)})
-   return()=>{live=false}
- },[user?.id])
+ const [profile,setProfile]=useState<{store_id:string;promptpay_id:string;recipient_name:string}|null>(null)
+ const [requests,setRequests]=useState<Array<{id:string;amount_satang:number;status:string;created_at:string}>>([])
+ const [amount,setAmount]=useState('')
+ const [slip,setSlip]=useState<File|null>(null)
+ const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false)
+ const [error,setError]=useState(''),[success,setSuccess]=useState('')
+ const load=async()=>{
+   if(!user)return
+   const main=await supabase.from('stores').select('id').eq('slug','otpthai').eq('status','active').maybeSingle()
+   if(main.error)throw main.error
+   if(!main.data)return
+   const [prof,accounts,reqs]=await Promise.all([
+     supabase.from('store_payment_profiles').select('store_id,promptpay_id,recipient_name').eq('store_id',main.data.id).eq('enabled',true).maybeSingle(),
+     supabase.from('wallet_accounts').select('id').eq('user_id',user.id).eq('store_id',main.data.id),
+     supabase.from('topup_requests').select('id,amount_satang,status,created_at').eq('user_id',user.id).eq('store_id',main.data.id).order('created_at',{ascending:false}),
+   ])
+   if(prof.error)throw prof.error;if(accounts.error)throw accounts.error;if(reqs.error)throw reqs.error
+   setProfile(prof.data);setRequests(reqs.data??[])
+   const ids=(accounts.data??[]).map(a=>a.id)
+   if(!ids.length){setEntries([]);return}
+   const e=await supabase.from('wallet_entries').select('id,amount_satang,entry_type,created_at').eq('store_id',main.data.id).in('account_id',ids).order('created_at',{ascending:false})
+   if(e.error)throw e.error;setEntries(e.data??[])
+ }
+ useEffect(()=>{if(!user){setLoading(false);return}let live=true;void load().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[user?.id])
+ const submit=async(e:FormEvent)=>{
+   e.preventDefault();if(!user||!profile||!slip||busy)return
+   const baht=Number(amount);if(!Number.isFinite(baht)||baht<=0){setError('กรุณาระบุยอดเติมเงิน');return}
+   setBusy(true);setError('');setSuccess('')
+   try{
+     const ext=slip.name.split('.').pop()?.toLowerCase()||'jpg'
+     const path=`${user.id}/${crypto.randomUUID()}.${ext}`
+     const up=await supabase.storage.from('payment-slips').upload(path,slip,{contentType:slip.type,upsert:false})
+     if(up.error)throw up.error
+     const ins=await supabase.from('topup_requests').insert({store_id:profile.store_id,user_id:user.id,amount_satang:Math.round(baht*100),slip_path:path})
+     if(ins.error){await supabase.storage.from('payment-slips').remove([path]);throw ins.error}
+     setAmount('');setSlip(null);setSuccess('ส่งสลิปแล้ว รอแอดมินตรวจสอบ ยอดเงินจะเข้า Wallet หลังอนุมัติ')
+     await load()
+   }catch(e){setError(errText(e))}finally{setBusy(false)}
+ }
  if(authLoading)return <section className="placeholder">กำลังตรวจสอบบัญชี...</section>
  if(!user)return <Navigate to="/login?next=/wallet" replace/>
  const balance=entries.reduce((sum,e)=>sum+e.amount_satang,0)
- return <section className="section page-section"><span className="eyebrow blue">MY WALLET</span><h1 className="page-title">กระเป๋าเงิน</h1>{error?<p role="alert" className="auth-error">{error}</p>:loading?<div className="empty">กำลังโหลด...</div>:<><div className="detail-price"><span>ยอดรวมตามรายการบัญชี</span><strong>{money(balance)}</strong></div><div className="notice"><ShieldCheck size={19}/><span>ยังไม่เปิดให้เติมเงินหรือชำระเงิน จนกว่าระบบตรวจรับเงินและบันทึกรายการจะพร้อมใช้งานจริง โปรดอย่าโอนเงินจากข้อมูลในหน้าเว็บนี้</span></div><h2>รายการเคลื่อนไหว</h2>{entries.length?<div className="admin-products">{entries.map(e=><div className="admin-product" key={e.id}><div><strong>{e.entry_type}</strong><small>{new Date(e.created_at).toLocaleString('th-TH')}</small></div><strong>{money(e.amount_satang)}</strong></div>)}</div>:<div className="empty"><Wallet size={34}/><p>ยังไม่มีรายการเงินในบัญชี</p></div>}</>}</section>
+ return <section className="section page-section"><span className="eyebrow blue">MY WALLET</span><h1 className="page-title">กระเป๋าเงิน</h1>
+ {error&&<p role="alert" className="auth-error">{error}</p>}{success&&<p role="status" className="auth-success">{success}</p>}
+ {loading?<div className="empty">กำลังโหลด...</div>:<><div className="detail-price"><span>ยอดเงินคงเหลือ</span><strong>{money(balance)}</strong></div>
+ <section className="admin-panel"><h2>เติมเงิน</h2>{profile?<form className="admin-form" onSubmit={e=>void submit(e)}><p><strong>PromptPay:</strong> {profile.promptpay_id}<br/><span className="muted small">ชื่อผู้รับ: {profile.recipient_name}</span></p><label>จำนวนเงิน (บาท)<input required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="100"/></label><label>แนบสลิป<input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setSlip(e.target.files?.[0]??null)}/></label><button disabled={busy||!slip} className="button button-primary">{busy?'กำลังส่ง...':'ส่งสลิปให้แอดมินตรวจ'}</button></form>:<div className="notice"><ShieldCheck size={19}/><span>แอดมินยังไม่ได้ตั้งค่าบัญชี PromptPay จึงยังไม่เปิดรับเติมเงิน</span></div>}</section>
+ <h2>คำขอเติมเงิน</h2>{requests.length?<div className="admin-products">{requests.map(r=><div className="admin-product" key={r.id}><div><strong>{money(r.amount_satang)}</strong><small>{new Date(r.created_at).toLocaleString('th-TH')}</small></div><span className="draft-badge">{r.status}</span></div>)}</div>:<div className="empty">ยังไม่มีคำขอเติมเงิน</div>}
+ <h2>รายการเคลื่อนไหว</h2>{entries.length?<div className="admin-products">{entries.map(e=><div className="admin-product" key={e.id}><div><strong>{e.entry_type}</strong><small>{new Date(e.created_at).toLocaleString('th-TH')}</small></div><strong>{money(e.amount_satang)}</strong></div>)}</div>:<div className="empty"><Wallet size={34}/><p>ยังไม่มีรายการเงินในบัญชี</p></div>}</>}</section>
 }
+
