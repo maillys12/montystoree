@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Clock3, Package, Search, ShieldCheck, ShoppingBag, Store, Wallet } from 'lucide-react'
+import { ArrowRight, ChevronRight, Package, Search, ShieldCheck, ShoppingBag, Store, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 
@@ -73,14 +73,25 @@ export function LiveProducts(){
  return <section className="section page-section"><span className="eyebrow blue">OUR COLLECTION</span><h1 className="page-title">สินค้าทั้งหมด</h1><p className="muted">แสดงเฉพาะสินค้าจริงจากฐานข้อมูลของร้าน OTPTHAI</p><div className="catalog-controls"><div className="search-field"><Search size={18}/><input aria-label="ค้นหาสินค้า" placeholder="ค้นหาสินค้า..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><CatalogResults search={search}/></section>
 }
 export function LiveProductDetail(){
- const {id}=useParams()
+ const {id}=useParams();const {user}=useAuth()
  const {products,variants,loading,error}=useMainCatalog()
+ const [buying,setBuying]=useState(''),[buyError,setBuyError]=useState('')
  if(loading)return <section className="placeholder"><p>กำลังโหลดรายละเอียดสินค้า...</p></section>
  if(error)return <section className="placeholder" role="alert">{error}</section>
  const p=products.find(x=>x.id===id)
  if(!p)return <section className="placeholder"><h1>ไม่พบสินค้านี้</h1><Link className="button button-primary" to="/products">กลับไปรายการสินค้า</Link></section>
  const options=variants.filter(v=>v.product_id===p.id)
- return <section className="section page-section"><div className="breadcrumbs"><Link to="/">หน้าหลัก</Link><ChevronRight size={15}/><Link to="/products">สินค้า</Link><ChevronRight size={15}/>{p.name}</div><div className="detail-layout"><div className="detail-art canva"><span className="detail-mark">{p.name.slice(0,1).toUpperCase()}</span></div><div className="detail-copy"><span className="eyebrow blue">OTPTHAI PRODUCT</span><h1>{p.name}</h1><p className="muted">{p.description}</p><div className="admin-products">{options.map(v=><div key={v.id} className="admin-product"><div><strong>{v.label}</strong><small>{v.duration_days?`${v.duration_days} วัน`:'รายละเอียดแพ็กเกจ'}</small></div><strong className="price">{money(v.price_satang)}</strong></div>)}</div><div className="notice"><Clock3 size={19}/><span>ร้านยังไม่ได้เปิดรับชำระเงินออนไลน์ กรุณาอย่าโอนเงินโดยอ้างอิงหน้านี้จนกว่าจะมีช่องทางการชำระเงินที่ยืนยันแล้ว</span></div><Link to="/products" className="button button-primary button-wide">เลือกสินค้าอื่น <ArrowRight size={17}/></Link></div></div></section>
+ const buy=async(variantId:string)=>{
+   if(!user){location.assign('/login?next='+encodeURIComponent(location.pathname));return}
+   if(buying)return
+   setBuying(variantId);setBuyError('')
+   try{
+     const {data,error:purchaseError}=await supabase.rpc('purchase_with_wallet',{p_variant:variantId,p_request:crypto.randomUUID()})
+     if(purchaseError)throw purchaseError
+     location.assign('/orders?order='+data)
+   }catch(e){setBuyError(errText(e))}finally{setBuying('')}
+ }
+ return <section className="section page-section"><div className="breadcrumbs"><Link to="/">หน้าหลัก</Link><ChevronRight size={15}/><Link to="/products">สินค้า</Link><ChevronRight size={15}/>{p.name}</div><div className="detail-layout"><div className="detail-art canva"><span className="detail-mark">{p.name.slice(0,1).toUpperCase()}</span></div><div className="detail-copy"><span className="eyebrow blue">OTPTHAI PRODUCT</span><h1>{p.name}</h1><p className="muted">{p.description}</p>{buyError&&<p role="alert" className="auth-error">{buyError}</p>}<div className="admin-products">{options.map(v=><div key={v.id} className="admin-product"><div><strong>{v.label}</strong><small>{v.duration_days?`${v.duration_days} วัน`:'รายละเอียดแพ็กเกจ'}</small></div><div className="admin-product-actions"><strong className="price">{money(v.price_satang)}</strong><button disabled={Boolean(buying)} onClick={()=>void buy(v.id)} className="button button-primary button-small">{buying===v.id?'กำลังซื้อ...':'ซื้อด้วย Wallet'}</button></div></div>)}</div><div className="notice"><Wallet size={19}/><span>ชำระด้วยยอดเงินใน Wallet เท่านั้น ระบบจะหักเงินและส่งสต็อกให้อัตโนมัติเมื่อซื้อสำเร็จ</span></div><Link to="/wallet" className="button button-primary button-wide">เติมเงินเข้า Wallet <ArrowRight size={17}/></Link></div></div></section>
 }
 export function LiveOrders(){
  const {user,loading:authLoading}=useAuth()
