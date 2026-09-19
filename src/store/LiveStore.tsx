@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Package, Search, ShieldCheck, ShoppingBag, Store, Wallet } from 'lucide-react'
+import { ArrowRight, ChevronRight, Package, Search, ShieldCheck, ShoppingBag, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import QRCode from 'qrcode'
+import { promptpayPayload } from '../lib/promptpay'
 import { useAuth } from '../auth/AuthProvider'
 
 type StoreRow = { id: string; name: string; slug: string; status: string }
@@ -65,7 +67,7 @@ export function LiveHome(){
  <section className="hero"><div className="hero-glow"/><div className="hero-content"><span className="hero-pill">✦ OTPTHAI DIGITAL STORE</span><h1>ความบันเทิงที่ใช่<br/><span>ในราคาที่คุณชอบ</span></h1><p>เลือกแพ็กเกจดิจิทัลจากสินค้าที่ร้านเปิดจำหน่ายจริง ตรวจสอบรายละเอียดและราคาได้ก่อนตัดสินใจ</p><div className="hero-actions"><Link className="button button-white" to="/products">เลือกดูสินค้า <ArrowRight size={17}/></Link><Link className="button button-glass" to="/admin">จัดการร้าน <Store size={17}/></Link></div></div><div className="hero-art" aria-hidden="true"><div className="orb orb-one"/><div className="glass-card"><div className="glass-icon">✦</div><div className="glass-lines"><i/><i/><i/></div></div></div></section>
  <section className="quick-benefits"><div><ShieldCheck/><span><strong>ข้อมูลจากร้านจริง</strong><small>ไม่แสดงยอดสั่งซื้อหรือสต็อกสมมุติ</small></span></div><div><ShoppingBag/><span><strong>เลือกจากสินค้าจริง</strong><small>ร้านเป็นผู้จัดการราคาและรายการสินค้า</small></span></div><div><Wallet/><span><strong>ยอดเงินตรวจสอบได้</strong><small>อ้างอิงรายการในระบบเท่านั้น</small></span></div></section>
  <section className="section"><div className="section-heading"><div><span className="eyebrow blue">OUR PRODUCTS</span><h2>สินค้าของร้าน</h2><p className="muted">รายการที่เผยแพร่จากหลังบ้าน OTPTHAI</p></div><Link className="text-link" to="/products">ดูสินค้าทั้งหมด <ArrowRight size={17}/></Link></div><CatalogResults limit={4}/></section>
- <section className="promo"><div><span className="eyebrow">BUILD YOUR STORE</span><h2>สร้างร้านค้าดิจิทัลของคุณ</h2><p>ร้านลูกมีสินค้าและข้อมูลแยกจากร้านหลัก ดูและจัดการร้านของตัวเองผ่านหลังบ้าน</p><Link className="button button-white" to="/admin">ไปยังหลังบ้าน <ArrowRight size={17}/></Link></div><div className="promo-art" aria-hidden="true"><Store size={110}/></div></section>
+ <section className="promo"><div><span className="eyebrow">OTPTHAI WALLET</span><h2>เติมเงินครั้งเดียว ซื้อได้หลายสินค้า</h2><p>เติมเงินเข้า Wallet รอแอดมินตรวจสลิป จากนั้นใช้ยอดคงเหลือซื้อแพ็กเกจได้เลย</p><Link className="button button-white" to="/wallet">ไปที่ Wallet <ArrowRight size={17}/></Link></div><div className="promo-art" aria-hidden="true"><Wallet size={110}/></div></section>
  </>
 }
 export function LiveProducts(){
@@ -125,7 +127,8 @@ export function LiveWallet(){
  const [entries,setEntries]=useState<Array<{id:string;amount_satang:number;entry_type:string;created_at:string}>>([])
  const [profile,setProfile]=useState<{store_id:string;promptpay_id:string;recipient_name:string}|null>(null)
  const [requests,setRequests]=useState<Array<{id:string;amount_satang:number;status:string;created_at:string}>>([])
- const [amount,setAmount]=useState('')
+ const [amount,setAmount]=useState('100')
+ const [qr,setQr]=useState(''),[qrError,setQrError]=useState('')
  const [slip,setSlip]=useState<File|null>(null)
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false)
  const [error,setError]=useState(''),[success,setSuccess]=useState('')
@@ -147,6 +150,20 @@ export function LiveWallet(){
    if(e.error)throw e.error;setEntries(e.data??[])
  }
  useEffect(()=>{if(!user){setLoading(false);return}let live=true;void load().catch(e=>{if(live)setError(errText(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[user?.id])
+ useEffect(()=>{
+   let active=true
+   setQr('');setQrError('')
+   if(!profile||!amount)return
+   const baht=Number(amount)
+   if(!Number.isFinite(baht)||baht<1||baht>1000000)return
+   try{
+     const payload=promptpayPayload(profile.promptpay_id,baht)
+     void QRCode.toDataURL(payload,{width:300,margin:2,errorCorrectionLevel:'M'})
+       .then(src=>{if(active)setQr(src)})
+       .catch(e=>{if(active)setQrError(errText(e))})
+   }catch(e){setQrError(errText(e))}
+   return()=>{active=false}
+ },[profile?.promptpay_id,amount])
  const submit=async(e:FormEvent)=>{
    e.preventDefault();if(!user||!profile||!slip||busy)return
    const baht=Number(amount);if(!Number.isFinite(baht)||baht<=0){setError('กรุณาระบุยอดเติมเงิน');return}
@@ -158,7 +175,7 @@ export function LiveWallet(){
      if(up.error)throw up.error
      const ins=await supabase.from('topup_requests').insert({store_id:profile.store_id,user_id:user.id,amount_satang:Math.round(baht*100),slip_path:path})
      if(ins.error){await supabase.storage.from('payment-slips').remove([path]);throw ins.error}
-     setAmount('');setSlip(null);setSuccess('ส่งสลิปแล้ว รอแอดมินตรวจสอบ ยอดเงินจะเข้า Wallet หลังอนุมัติ')
+     setAmount('100');setSlip(null);setSuccess('ส่งสลิปแล้ว รอแอดมินตรวจสอบ ยอดเงินจะเข้า Wallet หลังอนุมัติ')
      await load()
    }catch(e){setError(errText(e))}finally{setBusy(false)}
  }
@@ -168,7 +185,7 @@ export function LiveWallet(){
  return <section className="section page-section"><span className="eyebrow blue">MY WALLET</span><h1 className="page-title">กระเป๋าเงิน</h1>
  {error&&<p role="alert" className="auth-error">{error}</p>}{success&&<p role="status" className="auth-success">{success}</p>}
  {loading?<div className="empty">กำลังโหลด...</div>:<><div className="detail-price"><span>ยอดเงินคงเหลือ</span><strong>{money(balance)}</strong></div>
- <section className="admin-panel"><h2>เติมเงิน</h2>{profile?<form className="admin-form" onSubmit={e=>void submit(e)}><p><strong>PromptPay:</strong> {profile.promptpay_id}<br/><span className="muted small">ชื่อผู้รับ: {profile.recipient_name}</span></p><label>จำนวนเงิน (บาท)<input required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="100"/></label><label>แนบสลิป<input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setSlip(e.target.files?.[0]??null)}/></label><button disabled={busy||!slip} className="button button-primary">{busy?'กำลังส่ง...':'ส่งสลิปให้แอดมินตรวจ'}</button></form>:<div className="notice"><ShieldCheck size={19}/><span>แอดมินยังไม่ได้ตั้งค่าบัญชี PromptPay จึงยังไม่เปิดรับเติมเงิน</span></div>}</section>
+ <section className="admin-panel"><h2>เติมเงิน</h2>{profile?<form className="admin-form" onSubmit={e=>void submit(e)}><p><strong>PromptPay:</strong> {profile.promptpay_id}<br/><span className="muted small">ชื่อผู้รับ: {profile.recipient_name}</span></p><label>จำนวนเงิน (บาท)<input required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="100"/></label>{qr&&<div className="topup-qr"><img src={qr} alt={`PromptPay QR เติมเงิน ${amount} บาท`}/><strong>สแกนจ่าย {amount} บาท</strong><small>โปรดตรวจสอบชื่อบัญชีผู้รับก่อนโอน</small></div>}{qrError&&<p role="alert" className="auth-error">{qrError}</p>}<label>แนบสลิป<input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setSlip(e.target.files?.[0]??null)}/></label><button disabled={busy||!slip} className="button button-primary">{busy?'กำลังส่ง...':'ส่งสลิปให้แอดมินตรวจ'}</button></form>:<div className="notice"><ShieldCheck size={19}/><span>แอดมินยังไม่ได้ตั้งค่าบัญชี PromptPay จึงยังไม่เปิดรับเติมเงิน</span></div>}</section>
  <h2>คำขอเติมเงิน</h2>{requests.length?<div className="admin-products">{requests.map(r=><div className="admin-product" key={r.id}><div><strong>{money(r.amount_satang)}</strong><small>{new Date(r.created_at).toLocaleString('th-TH')}</small></div><span className="draft-badge">{r.status}</span></div>)}</div>:<div className="empty">ยังไม่มีคำขอเติมเงิน</div>}
  <h2>รายการเคลื่อนไหว</h2>{entries.length?<div className="admin-products">{entries.map(e=><div className="admin-product" key={e.id}><div><strong>{e.entry_type}</strong><small>{new Date(e.created_at).toLocaleString('th-TH')}</small></div><strong>{money(e.amount_satang)}</strong></div>)}</div>:<div className="empty"><Wallet size={34}/><p>ยังไม่มีรายการเงินในบัญชี</p></div>}</>}</section>
 }
