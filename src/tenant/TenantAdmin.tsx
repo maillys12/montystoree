@@ -110,8 +110,37 @@ export function TenantAdmin() {
       if(vRes.error)throw vRes.error
       setProducts((pRes.data??[]) as ProductRecord[]);setVariants((vRes.data??[]) as VariantRecord[])
       setProductName('');setProductSlug('');setProductPrice('')
-      setSuccess('เพิ่มสินค้าแบบร่างแล้ว ยังไม่เปิดขายจนกว่าจะมีระบบสต็อกและคำสั่งซื้อ')
+      setSuccess('เพิ่มสินค้าแล้ว กดเผยแพร่เพื่อแสดงรายละเอียดบนหน้าร้าน ระบบรับเงินยังไม่เปิด')
     }catch(e){setError(shortError(e))}finally{setBusy(false)}
+  }
+  const toggleProduct = async (product: ProductRecord) => {
+    if (!current || busy) return
+    if (current.status !== 'active') { setError('ร้านยังไม่เปิดใช้งาน จึงเผยแพร่สินค้าไม่ได้'); return }
+    const matching = variants.filter(v => v.product_id === product.id)
+    if (!product.published && !matching.length) { setError('กรุณาเพิ่มแพ็กเกจก่อนเผยแพร่สินค้า'); return }
+    setBusy(true); setError(''); setSuccess('')
+    try {
+      if (product.published) {
+        const {error: hideError} = await supabase.from('products').update({published:false}).eq('id',product.id).eq('store_id',current.id)
+        if (hideError) throw hideError
+        const {error: variantError} = await supabase.from('product_variants').update({published:false}).eq('product_id',product.id).eq('store_id',current.id)
+        if (variantError) throw variantError
+      } else {
+        const {error: variantError} = await supabase.from('product_variants').update({published:true}).eq('product_id',product.id).eq('store_id',current.id)
+        if (variantError) throw variantError
+        const {error: showError} = await supabase.from('products').update({published:true}).eq('id',product.id).eq('store_id',current.id)
+        if (showError) throw showError
+      }
+      const [pRes,vRes] = await Promise.all([
+        supabase.from('products').select('id,name,slug,description,published').eq('store_id',current.id).order('created_at',{ascending:false}),
+        supabase.from('product_variants').select('id,product_id,label,price_satang,published').eq('store_id',current.id),
+      ])
+      if (pRes.error) throw pRes.error
+      if (vRes.error) throw vRes.error
+      setProducts((pRes.data??[]) as ProductRecord[])
+      setVariants((vRes.data??[]) as VariantRecord[])
+      setSuccess(product.published ? 'ซ่อนสินค้าจากหน้าร้านแล้ว' : 'เผยแพร่รายละเอียดสินค้าแล้ว (ระบบรับชำระเงินยังไม่เปิด)')
+    } catch(e) { setError(shortError(e)) } finally { setBusy(false) }
   }
   if(loading||fetching)return <section className="placeholder"><p>กำลังโหลดร้านค้าของคุณ...</p></section>
   if(!user)return <Navigate to="/login?next=/admin" replace/>
@@ -134,11 +163,11 @@ export function TenantAdmin() {
       <div className="catalog-admin-grid"><form className="admin-form" onSubmit={addProduct}>
         <h3>เพิ่มสินค้าแบบร่าง</h3><label>ชื่อสินค้า<input required maxLength={120} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="Netflix 30 วัน"/></label>
         <label>รหัส URL สินค้า<input required value={productSlug} onChange={e=>setProductSlug(e.target.value.toLowerCase())} placeholder="netflix-30-days"/></label>
-        <label>ราคาตัวอย่าง (บาท)<input required type="number" min="0" max="1000000" step="0.01" value={productPrice} onChange={e=>setProductPrice(e.target.value)} placeholder="129"/></label>
+        <label>ราคาขาย (บาท)<input required type="number" min="0" max="1000000" step="0.01" value={productPrice} onChange={e=>setProductPrice(e.target.value)} placeholder="129"/></label>
         <label>ระยะเวลา (วัน)<input required type="number" min="1" max="3650" value={productDuration} onChange={e=>setProductDuration(e.target.value)}/></label>
         <label>วิธีส่งมอบ<select value={deliveryType} onChange={e=>setDeliveryType(e.target.value as typeof deliveryType)}><option value="manual">แอดมินส่งเอง</option><option value="account">บัญชีสำเร็จรูป</option><option value="code">โค้ด</option><option value="api">API ภายนอก</option></select></label>
         <button disabled={busy} className="button button-primary" type="submit"><Plus size={16}/> เพิ่มสินค้า</button>
-      </form><div className="admin-products">{products.length?products.map(product=><div className="admin-product" key={product.id}><div><strong>{product.name}</strong><small>/{product.slug} · {variants.filter(v=>v.product_id===product.id).map(v=>`${v.label} ฿${(v.price_satang/100).toLocaleString('th-TH')}`).join(', ')||'ไม่มีแพ็กเกจ'}</small></div><span className="draft-badge">{product.published?'เผยแพร่':'แบบร่าง'}</span></div>):<div className="empty"><PackagePlus/><p>ยังไม่มีสินค้าในร้านนี้</p></div>}</div></div>
+      </form><div className="admin-products">{products.length?products.map(product=><div className="admin-product" key={product.id}><div><strong>{product.name}</strong><small>/{product.slug} · {variants.filter(v=>v.product_id===product.id).map(v=>`${v.label} ฿${(v.price_satang/100).toLocaleString('th-TH')}`).join(', ')||'ไม่มีแพ็กเกจ'}</small></div><div className="admin-product-actions"><span className="draft-badge">{product.published?'เผยแพร่':'แบบร่าง'}</span><button type="button" className="button button-primary button-small" disabled={busy||current.status!=='active'} onClick={()=>void toggleProduct(product)}>{product.published?'ซ่อนสินค้า':'เผยแพร่'}</button></div></div>):<div className="empty"><PackagePlus/><p>ยังไม่มีสินค้าในร้านนี้</p></div>}</div></div>
     </div>}
     <div className="notice"><CircleAlert size={20}/><span>ระบบนี้ยังไม่มีการเก็บค่าเช่า รับชำระเงิน หรือส่งมอบสินค้าจริง ร้านใหม่จะอยู่ในสถานะร่างจนกว่าจะผ่านขั้นตอนเหล่านั้น <Wallet size={14}/></span></div>
   </section>
