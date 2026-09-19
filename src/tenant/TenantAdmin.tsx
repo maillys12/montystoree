@@ -17,6 +17,7 @@ type Order={id:string;customer_id:string;status:string;total_satang:number;creat
 type Account={id:string;user_id:string}
 type Entry={id:string;account_id:string;amount_satang:number;entry_type:string;external_reference:string;created_at:string}
 type Profile={store_id:string;promptpay_id:string;recipient_name:string;enabled:boolean}
+type Customer={user_id:string;email:string;balance_satang:number;order_count:number}
 type Section='overview'|'products'|'packages'|'stock'|'topups'|'orders'|'wallet'|'customers'|'payments'|'design'
 const tabs:{id:Section;name:string;icon:typeof Store}[]=[
  {id:'overview',name:'ภาพรวม',icon:LayoutDashboard},
@@ -45,6 +46,7 @@ export function TenantAdmin(){
  const [stock,setStock]=useState<Stock[]>([]),[topups,setTopups]=useState<Topup[]>([])
  const [orders,setOrders]=useState<Order[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[entries,setEntries]=useState<Entry[]>([])
  const [profile,setProfile]=useState<Profile|null>(null)
+ const [customers,setCustomers]=useState<Customer[]>([])
  const [storeName,setStoreName]=useState(''),[primary,setPrimary]=useState('#1769e0')
  const [paymentId,setPaymentId]=useState(''),[recipient,setRecipient]=useState(''),[paymentEnabled,setPaymentEnabled]=useState(false)
  const [productName,setProductName]=useState(''),[productSlug,setProductSlug]=useState(''),[description,setDescription]=useState('')
@@ -76,6 +78,7 @@ export function TenantAdmin(){
    supabase.from('wallet_accounts').select('id,user_id').eq('store_id',current.id),
    supabase.from('wallet_entries').select('id,account_id,amount_satang,entry_type,external_reference,created_at').eq('store_id',current.id).order('created_at',{ascending:false}).limit(300),
    supabase.from('store_payment_profiles').select('store_id,promptpay_id,recipient_name,enabled').eq('store_id',current.id).maybeSingle(),
+   supabase.rpc('store_wallet_customers'),
   ])
   for(const r of results)if(r.error)throw r.error
   setProducts((results[0].data??[]) as Product[])
@@ -87,6 +90,7 @@ export function TenantAdmin(){
   setEntries((results[6].data??[]) as Entry[])
   const p=results[7].data as Profile|null
   setProfile(p);setPaymentId(p?.promptpay_id??'');setRecipient(p?.recipient_name??'');setPaymentEnabled(p?.enabled??false)
+  setCustomers((results[8].data??[]) as Customer[])
  }
  useEffect(()=>{if(!user){setLoading(false);return}let live=true;setLoading(true);void load().catch(e=>{if(live)setError(errorText(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[user?.id])
  const run=async(fn:()=>Promise<void>,message:string)=>{
@@ -219,7 +223,7 @@ export function TenantAdmin(){
   {section==='topups'&&<div className="admin-panel"><h2>ตรวจสอบคำขอเติมเงิน</h2><p className="muted small">ตรวจยอด สลิป บัญชีผู้รับ และการโอนในบัญชีจริงก่อนกดอนุมัติ การกดอนุมัติจะเพิ่มยอด Wallet ทันที</p><div className="admin-products">{topups.map(t=><div className="admin-product shop-admin-review" key={t.id}><div><strong>{cash(t.amount_satang)}</strong><small>ลูกค้า {t.user_id.slice(0,8)} · {format(t.created_at)}</small><small>สถานะ: {t.status}</small>{t.admin_note&&<small>หมายเหตุ: {t.admin_note}</small>}{slipUrls[t.id]&&<a href={slipUrls[t.id]} target="_blank" rel="noopener noreferrer">เปิดภาพสลิป</a>}</div><div className="admin-product-actions"><button className="button button-small" onClick={()=>void slip(t)}>ดูสลิป</button>{t.status==='pending'&&<><input aria-label="หมายเหตุการตรวจสลิป" placeholder="หมายเหตุ" value={reviewNotes[t.id]??''} onChange={e=>setReviewNotes(old=>({...old,[t.id]:e.target.value}))}/><button disabled={busy} className="button button-primary button-small" onClick={()=>void review(t,true)}>อนุมัติ</button><button disabled={busy} className="button button-small" onClick={()=>void review(t,false)}>ปฏิเสธ</button></>}</div></div>)}</div>{!topups.length&&<p>ยังไม่มีคำขอเติมเงิน</p>}</div>}
   {section==='orders'&&<div className="admin-panel"><h2>คำสั่งซื้อ ({orders.length})</h2><div className="admin-products">{orders.map(o=><div className="admin-product" key={o.id}><div><strong>#{o.id.slice(0,8).toUpperCase()}</strong><small>ลูกค้า {o.customer_id.slice(0,8)} · {format(o.created_at)}</small><small>{o.status}</small></div><strong>{cash(o.total_satang)}</strong></div>)}</div>{!orders.length&&<p>ยังไม่มีคำสั่งซื้อ</p>}</div>}
   {section==='wallet'&&<div className="admin-panel"><h2>รายการเคลื่อนไหว Wallet</h2><p className="muted small">รายการจริงของร้าน OTPTHAI (300 รายการล่าสุด)</p><div className="admin-products">{entries.map(e=><div className="admin-product" key={e.id}><div><strong>{e.entry_type}</strong><small>ลูกค้า {accountById.get(e.account_id)?.slice(0,8)??'ไม่พบ'} · {format(e.created_at)}</small><small>อ้างอิง {e.external_reference}</small></div><strong>{cash(e.amount_satang)}</strong></div>)}</div>{!entries.length&&<p>ยังไม่มีรายการเงิน</p>}</div>}
-  {section==='customers'&&<div className="admin-panel"><h2>ลูกค้าที่มี Wallet ({accounts.length})</h2><div className="admin-products">{accounts.map(a=><div className="admin-product" key={a.id}><div><strong>ลูกค้า {a.user_id.slice(0,12)}</strong><small>คำสั่งซื้อ {orders.filter(o=>o.customer_id===a.user_id).length} รายการ</small></div><strong>{cash(entries.filter(e=>e.account_id===a.id).reduce((sum,e)=>sum+e.amount_satang,0))}</strong></div>)}</div>{!accounts.length&&<p>ยังไม่มีบัญชี Wallet ของลูกค้า</p>}</div>}
+  {section==='customers'&&<div className="admin-panel"><h2>ลูกค้าที่มี Wallet ({customers.length})</h2><div className="admin-products">{customers.map(a=><div className="admin-product" key={a.user_id}><div><strong>{a.email}</strong><small>คำสั่งซื้อ {a.order_count} รายการ</small></div><strong>{cash(a.balance_satang)}</strong></div>)}</div>{!customers.length&&<p>ยังไม่มีบัญชี Wallet ของลูกค้า</p>}</div>}
   {section==='payments'&&<div className="admin-panel"><h2>ตั้งค่าบัญชีรับเติมเงิน</h2><p className="muted small">คุณใส่บัญชีภายหลังได้ ระบบไม่แสดงบัญชีรับเงินก่อนตั้งค่าและเปิดใช้งาน</p><form className="admin-form" onSubmit={e=>void savePayment(e)}><label>เบอร์ PromptPay 10 หลัก หรือเลขประจำตัว 13 หลัก<input required inputMode="numeric" value={paymentId} onChange={e=>setPaymentId(e.target.value.replace(/\D/g,''))} maxLength={13}/></label><label>ชื่อบัญชีผู้รับเงิน<input required value={recipient} onChange={e=>setRecipient(e.target.value)}/></label><label className="shop-admin-check"><input type="checkbox" checked={paymentEnabled} onChange={e=>setPaymentEnabled(e.target.checked)}/> เปิดรับการเติมเงิน</label><button disabled={busy} className="button button-primary"><Save size={16}/> บันทึกบัญชี</button></form><p className="muted small">สถานะปัจจุบัน: {profile?.enabled?'เปิดรับเติมเงิน':'ยังไม่เปิดรับเติมเงิน'}</p></div>}
   {section==='design'&&<div className="admin-panel"><h2>ตั้งค่าร้าน OTPTHAI</h2><form className="admin-form" onSubmit={e=>void saveDesign(e)}><label>ชื่อร้าน<input required value={storeName} onChange={e=>setStoreName(e.target.value)}/></label><label>สีหลัก<input type="color" value={primary} onChange={e=>setPrimary(e.target.value)}/></label><button disabled={busy} className="button button-primary"><Save size={16}/> บันทึก</button></form><p className="muted small">ที่อยู่ร้าน: www.otpthai.shop · สถานะ: {store.status}</p></div>}
   </div>
