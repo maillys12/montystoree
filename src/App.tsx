@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, Check, ChevronRight, CircleHelp, Clock3, CreditCard, Headphones, LayoutDashboard, Menu, Package, Search, ShieldCheck, ShoppingBag, ShoppingCart, Sparkles, Store, Wallet, X } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Check, ChevronRight, CircleHelp, Clock3, Headphones, LayoutDashboard, Menu, Package, Search, ShieldCheck, ShoppingBag, ShoppingCart, Sparkles, Store, Wallet, X } from 'lucide-react'
 
 type Product = {
   id: string
